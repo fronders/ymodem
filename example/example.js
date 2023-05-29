@@ -1,24 +1,11 @@
 const fs = require('fs');
 const SerialPort = require('serialport')
-const YModem = require('./ymodem');
+const YModem = require('ymodem');
 
 const port = new SerialPort('COM4', { autoOpen: false, baudRate: 1000000 })
 const firmware = './UserApp.sfb';
 
-port.on('open', function () {
-    port.set({ dtr: true, rts: true, })
-    console.log(timestamp(), '--', 'Port', port.path, 'opened')
-})
-
-port.on('close', function () {
-    console.log(timestamp(), '--', 'Port', port.path, 'closed')
-})
-
-port.on('error', function (err) {
-    console.log(timestamp(), '--', 'Error:', err.message)
-})
-
-port.on('data', function (data) {
+function handler(data) {
     const now = timestamp()
     if (data.length == 1 && data.includes(0x06))
         var data_str = ['ACK']
@@ -27,7 +14,7 @@ port.on('data', function (data) {
     else
         var data_str = data.toString().trim().split(/\r?\n/)
     data_str.forEach(item => console.log(now, '>>', item.trim()))
-})
+}
 
 function open() {
     port.open(function (err) {
@@ -66,7 +53,20 @@ function timestamp() {
     return time + '.' + millis
 }
 
-async function demo() {
+async function example() {
+    port.on('open', function () {
+        port.set({ dtr: true, rts: true, })
+        console.log(timestamp(), '--', 'Port', port.path, 'opened')
+    })
+    
+    port.on('close', function () {
+        console.log(timestamp(), '--', 'Port', port.path, 'closed')
+    })
+    
+    port.on('error', function (err) {
+        console.log(timestamp(), '--', 'Error:', err.message)
+    })
+    port.on('data', handler)
     open()
     await sleep(1000)
     send('VERB=2')
@@ -74,6 +74,7 @@ async function demo() {
     send('FUPD')
     // await sleep(10000)
     timeout = 10000
+    port.removeListener('data', handler);
     await YModem.transfer(port, firmware, fs.readFileSync(firmware), timeout)
         .then((result) => {
             if (result && result.totalBytes == result.writtenBytes) {
@@ -85,8 +86,9 @@ async function demo() {
         .catch((err) => {
             console.log(err)
         });
+    port.on('data', handler);
     await sleep(10000)
     close()
 }
 
-demo()
+example()
