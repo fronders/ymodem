@@ -20,8 +20,5 @@
   "bugs": {
     "url": "https://github.com/fronders/ymodem/issues"
   },
-  "homepage": "https://github.com/fronders/ymodem",
-  "dependencies": {
-    "serialport": "^9.2.8"
-  }
+  "homepage": "https://github.com/fronders/ymodem"
 }
