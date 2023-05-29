@@ -104,7 +104,7 @@ function splitBuffer(buffer, size) {
     return array;
 }
 
-exports.transfer = function transfer(serial, filename, buffer, logger = console.log) {
+exports.transfer = function transfer(serial, filename, buffer, timeout = 0, logger = console.log) {
     // eslint-disable-next-line
     return new Promise((resolve, reject) => {
         var file_trunks = [];
@@ -114,6 +114,15 @@ exports.transfer = function transfer(serial, filename, buffer, logger = console.
         var session = false;
         var sending = false;
         var finished = false;
+        var haveTimeout = typeof timeout === "number" && timeout > 0
+        var timer;
+
+        // Set up the timeout for packet requests
+        if (haveTimeout) {
+            timer = setTimeout(() => {
+                close("TIMEOUT", false);
+            }, timeout);
+        }
 
         // convert Uint8Array to Buffer
         buffer = Buffer.from(buffer.buffer);
@@ -152,6 +161,10 @@ exports.transfer = function transfer(serial, filename, buffer, logger = console.
                 if (!finished) {
                     var ch = data[i];
                     if (ch === CRC16) {
+                        if (haveTimeout) {
+                            // Received packet request, cancel timeout timer
+                            clearTimeout(timer);
+                        }
                         logger(`RCV: C @${seq}`);
                         if (seq >= file_trunks.length) {
                             logger(`SEND EOT @${seq}`);
@@ -200,18 +213,22 @@ exports.transfer = function transfer(serial, filename, buffer, logger = console.
         }
 
         // Finish transmittion
-        function close(ch = '') {
+        function close(ch = '', success=true) {
             session = false;
             sending = false;
             serial.removeListener("data", handler);
             logger(`CLOSE BY [${ch}]`);
             if (!finished) {
-                const result = {
-                    filePath: filename,
-                    totalBytes: totalBytes,
-                    writtenBytes: writtenBytes,
-                };
-                resolve(result);
+                if (success) {
+                    const result = {
+                        filePath: filename,
+                        totalBytes: totalBytes,
+                        writtenBytes: writtenBytes,
+                    };
+                    resolve(result);
+                } else {
+                    reject(new Error(`Timeout for Ymodem packet request expired: ${timeout} ms`));
+                }
             }
             finished = true;
         }

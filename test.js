@@ -72,14 +72,19 @@ async function demo() {
     send('VERB=2')
     await sleep(5000)
     send('FUPD')
-    await sleep(10000)
-    await YModem.transfer(port, firmware, fs.readFileSync(firmware)).then((result) => {
-        if (result && result.totalBytes == result.writtenBytes) {
-            console.log('file transfer successful')
-        } else {
-            console.log('file transfer error')
-        }
-    });
+    // await sleep(10000)
+    timeout = 10000
+    await YModem.transfer(port, firmware, fs.readFileSync(firmware), timeout)
+        .then((result) => {
+            if (result && result.totalBytes == result.writtenBytes) {
+                console.log('file transfer successful')
+            } else {
+                console.log('file transfer error')
+            }
+        })
+        .catch((err) => {
+            console.log(err)
+        });
     await sleep(10000)
     close()
 }
