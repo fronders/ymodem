@@ -20,6 +20,8 @@ eot_pack[0] = SOH;
 eot_pack[2] = 0xff;
 // crc == 0
 
+function noop() { }
+
 /* 
  * YModem uses CRC16-CCITT European version of the CRC checksum, 
  * its generator polynomial is：x16+x12+x5+1
@@ -104,7 +106,7 @@ function splitBuffer(buffer, size) {
     return array;
 }
 
-exports.transfer = function transfer(serial, filename, buffer, timeout = 0, logger = console.log) {
+exports.transfer = function transfer(serial, filename, buffer, timeout = 0, onProgress = noop, logger = console.log) {
     // eslint-disable-next-line
     return new Promise((resolve, reject) => {
         var file_trunks = [];
@@ -144,6 +146,7 @@ exports.transfer = function transfer(serial, filename, buffer, timeout = 0, logg
         // Send packet
         async function sendPacket() {
             logger(`sendPacket seq:${seq}/${file_trunks.length}  \r`);
+            onProgress([seq, file_trunks.length])
             if (seq < file_trunks.length) {
                 var packet = file_trunks[seq];
                 await sendBuffer(packet);
@@ -213,7 +216,7 @@ exports.transfer = function transfer(serial, filename, buffer, timeout = 0, logg
         }
 
         // Finish transmittion
-        function close(ch = '', success=true) {
+        function close(ch = '', success = true) {
             session = false;
             sending = false;
             serial.removeListener("data", handler);
